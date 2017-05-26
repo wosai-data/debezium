@@ -59,6 +59,8 @@ public final class MySqlConnectorTask extends SourceTask {
         if (!config.validateAndRecord(MySqlConnectorConfig.ALL_FIELDS, logger::error)) {
             throw new ConnectException("Error configuring an instance of " + getClass().getSimpleName() + "; check the logs for details");
         }
+        //boolean shouldIgnoreHistory = config.getBoolean("should.ignore.history");
+        boolean shouldIgnoreHistory=true;
 
         // Create and start the task context ...
         this.taskContext = new MySqlTaskContext(config);
@@ -77,7 +79,14 @@ public final class MySqlConnectorTask extends SourceTask {
                 logger.info("Found existing offset: {}", offsets);
 
                 // Before anything else, recover the database history to the specified binlog coordinates ...
-                taskContext.loadHistory(source);
+                try {
+                    taskContext.loadHistory(source);
+                }catch(Throwable t){
+                    if (!shouldIgnoreHistory) {
+                        throw t;
+                    }
+                    logger.error("Load history error");
+                }
 
                 if (source.isSnapshotInEffect()) {
                     // The last offset was an incomplete snapshot that we cannot recover from...
